@@ -5,6 +5,30 @@ FaceAttend is a production-oriented, multi-tenant SaaS facial-attendance platfor
 The product name and branding must remain configurable; business logic must not depend on FaceAttend-specific strings.
 
 The Phase 0 implementation blueprint is maintained in [docs/PHASE_0_ARCHITECTURE.md](docs/PHASE_0_ARCHITECTURE.md).
+The application shell, authentication and product screens are described in
+[docs/PHASE_2_APP_SHELL.md](docs/PHASE_2_APP_SHELL.md).
+
+Deployment, the database schema, and what is not production-ready yet are in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+## Repository layout
+
+```text
+app/        Android client (Kotlin, Compose, Material 3) — see docs/PHASE_2_APP_SHELL.md
+backend/    FastAPI service (RBAC, face recognition, audit) — see backend/README.md
+web/        Next.js console and landing page — see web/README.md
+docs/       Architecture and phase documents
+```
+
+Run the backend on `:8000` and the web console on `:3000`; both share the demo tenants seeded by
+`backend/app/seed.py`.
+
+## Guest mode
+
+The Login screen offers **Continue as guest**: a local, backend-free session seeded with a sample
+organization, so the full product can be reviewed and tested before the API exists. Guest sessions
+never contact a server, are labelled with a persistent banner on every data screen, and are cleared
+on exit. See the Phase 2 document for what guest mode does and does not cover.
 
 ## Product principles
 

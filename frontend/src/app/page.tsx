@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import AndroidDownload from "@/components/android-download";
 import { BrandMark, ButtonLink, Card, Wordmark } from "@/components/ui";
 
 const capabilities = [
@@ -39,6 +40,12 @@ export default function LandingPage() {
           >
             How it works
           </Link>
+          <Link
+            href="#app"
+            className="hidden rounded-lg px-3 py-2 text-sm font-medium text-ink-600 hover:text-ink-900 sm:block"
+          >
+            Get the app
+          </Link>
           <ButtonLink href="/login" variant="secondary">
             Sign in
           </ButtonLink>
@@ -61,8 +68,8 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <ButtonLink href="/login">Open the console</ButtonLink>
-              <ButtonLink href="#how" variant="secondary">
-                See how it works
+              <ButtonLink href="#app" variant="secondary">
+                Get the Android app
               </ButtonLink>
             </div>
             <p className="mt-5 text-sm text-ink-500">
@@ -124,6 +131,8 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      <AndroidDownload />
 
       <footer className="border-t border-ink-200">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-8 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">

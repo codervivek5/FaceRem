@@ -26,8 +26,18 @@ enum class AttendanceStatus(val displayName: String) {
 }
 
 enum class AttendanceEventType(val displayName: String) {
-    CHECK_IN("Check in"),
-    CHECK_OUT("Check out"),
+    CHECK_IN("Checked in"),
+    CHECK_OUT("Checked out"),
+
+    /**
+     * The day was already recorded, so the scan changed nothing. An unattended gate sees the
+     * same faces many times a day; this is the normal answer, not a failure.
+     */
+    ALREADY_PRESENT("Already present"),
+    ;
+
+    /** True when the scan wrote an attendance event rather than just reporting one. */
+    val isNewEvent: Boolean get() = this != ALREADY_PRESENT
 }
 
 /** Outcome of a server-side recognition attempt. */
@@ -42,6 +52,9 @@ sealed interface RecognitionOutcome {
         val confidence: Float,
         val status: AttendanceStatus,
         val lateMinutes: Int,
+        /** The day's timestamps, so a repeat scan can say "in since 09:05". */
+        val checkInLabel: String? = null,
+        val checkOutLabel: String? = null,
     ) : RecognitionOutcome
 
     /** Never expose near matches for an unrecognised face. */

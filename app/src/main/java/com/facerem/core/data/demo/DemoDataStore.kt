@@ -115,6 +115,14 @@ class DemoDataStore @Inject constructor() {
      * to `POST /api/v1/attendance/recognize` and the backend performs the organization-scoped
      * vector search; nothing about identity is ever decided on the device.
      */
+    /**
+     * Mirrors the server's scan rules so guest mode behaves like a real gate: the first scan of
+     * the day checks someone in, further scans report that they are already present, and only a
+     * scan well after check-in ends the day.
+     *
+     * The real window is four hours (`CHECKOUT_AFTER_MINUTES`). Demo mode shortens it to two
+     * minutes so a reviewer can actually watch a check-out happen.
+     */
     fun simulateRecognition(): RecognitionOutcome {
         val enrolled = mutableEmployees.value.filter { it.faceEnrollment == FaceEnrollmentStatus.ENROLLED }
         if (enrolled.isEmpty()) {
@@ -124,51 +132,96 @@ class DemoDataStore @Inject constructor() {
         if (Random.nextInt(6) == 0) {
             return RecognitionOutcome.NotRecognized("Face not recognized. Ask an admin to enroll this person.")
         }
+
         val employee = enrolled.random()
         val today = AppClock.todayIso()
         val existing = mutableAttendance.value.firstOrNull { it.employeeId == employee.id && it.date == today }
-        val isCheckOut = existing?.checkInTime != null && existing.checkOutTime == null
         val timeLabel = AppClock.nowTimeLabel()
-        val lateMinutes = existing?.lateMinutes ?: if (Random.nextInt(4) == 0) Random.nextInt(5, 35) else 0
+        val event = resolveDemoEvent(employee.id, existing)
+
+        if (event == AttendanceEventType.ALREADY_PRESENT) {
+            // Nothing is written, exactly as the server does for a repeat scan.
+            return RecognitionOutcome.Recognized(
+                employeeId = employee.id,
+                employeeName = employee.fullName,
+                employeeCode = employee.employeeCode,
+                department = employee.department,
+                eventType = event,
+                timeLabel = timeLabel,
+                confidence = Random.nextDouble(0.87, 0.99).toFloat(),
+                status = existing?.status ?: AttendanceStatus.PRESENT,
+                lateMinutes = existing?.lateMinutes ?: 0,
+                checkInLabel = existing?.checkInTime,
+                checkOutLabel = existing?.checkOutTime,
+            )
+        }
+
+        val isCheckOut = event == AttendanceEventType.CHECK_OUT
+        val lateMinutes = existing?.lateMinutes
+            ?: if (Random.nextInt(4) == 0) Random.nextInt(5, 35) else 0
         val status = when {
             isCheckOut -> existing?.status ?: AttendanceStatus.PRESENT
             lateMinutes > 0 -> AttendanceStatus.LATE
             else -> AttendanceStatus.PRESENT
         }
 
-        mutableAttendance.update { records ->
-            val updated = existing?.copy(
-                checkOutTime = if (isCheckOut) timeLabel else existing.checkOutTime,
-                checkInTime = existing.checkInTime ?: timeLabel,
-                status = status,
-                workedMinutes = if (isCheckOut) Random.nextInt(430, 560) else existing.workedMinutes,
-            ) ?: AttendanceRecord(
-                id = "att-${employee.id}-$today",
-                employeeId = employee.id,
-                employeeName = employee.fullName,
-                employeeCode = employee.employeeCode,
-                department = employee.department,
-                date = today,
-                checkInTime = timeLabel,
-                checkOutTime = null,
-                status = status,
-                lateMinutes = lateMinutes,
-                workedMinutes = 0,
-            )
-            records.filterNot { it.id == updated.id } + updated
+        if (!isCheckOut) {
+            checkInEpochMillis[employee.id] = System.currentTimeMillis()
         }
+
+        val updated = existing?.copy(
+            checkOutTime = if (isCheckOut) timeLabel else existing.checkOutTime,
+            checkInTime = existing.checkInTime ?: timeLabel,
+            status = status,
+            workedMinutes = if (isCheckOut) Random.nextInt(430, 560) else existing.workedMinutes,
+        ) ?: AttendanceRecord(
+            id = "att-${employee.id}-$today",
+            employeeId = employee.id,
+            employeeName = employee.fullName,
+            employeeCode = employee.employeeCode,
+            department = employee.department,
+            date = today,
+            checkInTime = timeLabel,
+            checkOutTime = null,
+            status = status,
+            lateMinutes = lateMinutes,
+            workedMinutes = 0,
+        )
+        mutableAttendance.update { records -> records.filterNot { it.id == updated.id } + updated }
 
         return RecognitionOutcome.Recognized(
             employeeId = employee.id,
             employeeName = employee.fullName,
             employeeCode = employee.employeeCode,
             department = employee.department,
-            eventType = if (isCheckOut) AttendanceEventType.CHECK_OUT else AttendanceEventType.CHECK_IN,
+            eventType = event,
             timeLabel = timeLabel,
             confidence = Random.nextDouble(0.87, 0.99).toFloat(),
             status = status,
             lateMinutes = lateMinutes,
+            checkInLabel = updated.checkInTime,
+            checkOutLabel = updated.checkOutTime,
         )
+    }
+
+    /** Check-in times for scans made during this session, used to time the demo check-out. */
+    private val checkInEpochMillis = mutableMapOf<String, Long>()
+
+    private fun resolveDemoEvent(
+        employeeId: String,
+        existing: AttendanceRecord?,
+    ): AttendanceEventType {
+        if (existing?.checkInTime == null) return AttendanceEventType.CHECK_IN
+        if (existing.checkOutTime != null) return AttendanceEventType.ALREADY_PRESENT
+
+        // Seeded records have no session timestamp; treat them as a normal open day.
+        val checkedInAt = checkInEpochMillis[employeeId] ?: return AttendanceEventType.ALREADY_PRESENT
+        val elapsedMinutes = (System.currentTimeMillis() - checkedInAt) / 60_000
+        return if (elapsedMinutes >= DEMO_CHECKOUT_AFTER_MINUTES) {
+            AttendanceEventType.CHECK_OUT
+        } else {
+            AttendanceEventType.ALREADY_PRESENT
+        }
     }
 
     fun weeklyRates(): List<DailyRate> = (5 downTo 0).map { daysAgo ->
@@ -218,7 +271,7 @@ class DemoDataStore @Inject constructor() {
                 employeeCode = "NW-${(1001 + index)}",
                 fullName = name,
                 email = name.lowercase().replace(" ", ".") + "@northwind.demo",
-                phone = "+91 98${(100000 + index * 4321) % 1000000}".take(14),
+                phone = "+91 98%06d".format((100000 + index * 4321) % 1000000),
                 department = department,
                 branch = branchNames[index % branchNames.size],
                 jobTitle = title,
@@ -253,7 +306,11 @@ class DemoDataStore @Inject constructor() {
                         department = employee.department,
                         date = date,
                         checkInTime = if (checkedIn) AppClock.timeLabel(9, (lateMinutes + index) % 60) else null,
-                        checkOutTime = if (checkedIn && !openToday) AppClock.timeLabel(18, (index * 7) % 60) else null,
+                        checkOutTime = when {
+                            !checkedIn || openToday -> null
+                            status == AttendanceStatus.HALF_DAY -> AppClock.timeLabel(13, (index * 7) % 60)
+                            else -> AppClock.timeLabel(18, (index * 7) % 60)
+                        },
                         status = status,
                         lateMinutes = lateMinutes,
                         overtimeMinutes = if (bucket == 3) 45 else 0,
@@ -271,5 +328,8 @@ class DemoDataStore @Inject constructor() {
 
     companion object {
         const val DEMO_ORGANIZATION_ID = "org-demo"
+
+        /** Shortened from the server's four hours so check-out is demoable. */
+        private const val DEMO_CHECKOUT_AFTER_MINUTES = 2L
     }
 }

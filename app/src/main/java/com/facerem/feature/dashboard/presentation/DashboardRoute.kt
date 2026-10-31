@@ -1,6 +1,9 @@
 package com.facerem.feature.dashboard.presentation
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,10 +12,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.item
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.EventBusy
@@ -33,10 +39,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.facerem.app.navigation.BottomBarClearance
 import com.facerem.core.common.AppClock
 import com.facerem.core.designsystem.component.AttendanceStatusPill
 import com.facerem.core.designsystem.component.ErrorState
@@ -113,6 +122,7 @@ private fun DashboardHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .statusBarsPadding()
             .padding(horizontal = Spacing.screenHorizontal, vertical = Spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -121,26 +131,38 @@ private fun DashboardHeader(
                 greeting(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium,
             )
             Text(
                 name.ifBlank { "There" },
                 style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             if (organization.isNotBlank()) {
+                Spacer(Modifier.height(Spacing.xs))
                 Text(
                     organization,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
         }
-        IconButton(onClick = onOpenNotifications) {
-            Icon(Icons.Default.Notifications, contentDescription = "Notifications")
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            IconButton(onClick = onOpenNotifications) {
+                Icon(Icons.Default.Notifications, contentDescription = "Notifications", modifier = Modifier.size(20.dp))
+            }
         }
-        Spacer(Modifier.width(Spacing.xs))
-        IconButton(onClick = onOpenProfile) { UserAvatar(name = name, size = 40.dp) }
+        Spacer(Modifier.width(Spacing.sm))
+        IconButton(onClick = onOpenProfile) { UserAvatar(name = name, size = 42.dp) }
     }
 }
 
@@ -163,7 +185,7 @@ private fun DashboardContent(
         contentPadding = PaddingValues(
             start = Spacing.screenHorizontal,
             end = Spacing.screenHorizontal,
-            bottom = 96.dp,
+            bottom = BottomBarClearance,
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.lg),
     ) {
@@ -176,6 +198,7 @@ private fun DashboardContent(
                 summary.dateLabel,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium,
             )
         }
 
@@ -222,9 +245,11 @@ private fun DashboardContent(
 
         item {
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), MaterialTheme.shapes.extraLarge),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
                 Column(modifier = Modifier.padding(Spacing.lg)) {
@@ -234,7 +259,7 @@ private fun DashboardContent(
                         caption = "${summary.presentCount + summary.lateCount} checked in",
                     )
                     Spacer(Modifier.height(Spacing.xl))
-                    Text("Last 6 days", style = MaterialTheme.typography.titleSmall)
+                    Text("Last 6 days", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(Spacing.md))
                     WeeklyRateChart(rates = summary.weeklyAttendanceRate)
                 }
@@ -298,13 +323,17 @@ private fun DashboardContent(
 @Composable
 private fun RecentActivityRow(record: AttendanceRecord) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatar(name = record.employeeName, size = 40.dp)
+        UserAvatar(name = record.employeeName, size = 42.dp)
         Spacer(Modifier.width(Spacing.md))
         Column(modifier = Modifier.weight(1f)) {
-            Text(record.employeeName, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(record.employeeName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 buildString {
                     append(record.department)

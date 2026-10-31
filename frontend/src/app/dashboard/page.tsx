@@ -11,6 +11,7 @@ import {
   StatusPill,
   formatTime,
 } from "@/components/ui";
+import AndroidDownload from "@/components/android-download";
 import { ApiError, apiGet } from "@/lib/api";
 import type { AttendanceRecord, Dashboard, Me } from "@/lib/types";
 import { canRunScans } from "@/lib/types";
@@ -70,6 +71,8 @@ export default async function OverviewPage() {
           Your role can see your own attendance, but not organization-wide totals.
         </Banner>
       )}
+
+      <AndroidDownload compact />
 
       <section>
         <SectionTitle

@@ -11,7 +11,17 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "faceattend_preferences")
 
-enum class ThemeMode { SYSTEM, LIGHT, DARK }
+enum class ThemeMode {
+    SYSTEM,
+    LIGHT,
+    DARK,
+
+    /** Translucent surfaces over a soft colour backdrop. Always light-on-light. */
+    LIQUID_GLASS,
+    ;
+
+    val isGlass: Boolean get() = this == LIQUID_GLASS
+}
 
 /**
  * Stored session snapshot. Tokens live here only so the app can restore a session on cold start;
@@ -44,6 +54,9 @@ class AppPreferences(private val context: Context) {
 
     val session: Flow<StoredSession> = context.dataStore.data.map { it.toStoredSession() }
 
+    /** Read separately from [session] because only the refresh coordinator needs it. */
+    val refreshToken: Flow<String?> = context.dataStore.data.map { it[Keys.refreshToken] }
+
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { it[Keys.themeMode] = mode.name }
     }
@@ -67,6 +80,14 @@ class AppPreferences(private val context: Context) {
             prefs.putOrRemove(Keys.organizationId, session.organizationId)
             prefs.putOrRemove(Keys.organizationName, session.organizationName)
             prefs[Keys.guestMode] = session.isGuest
+        }
+    }
+
+    /** Replaces just the token pair, leaving the signed-in identity untouched. */
+    suspend fun updateTokens(accessToken: String, refreshToken: String) {
+        context.dataStore.edit {
+            it[Keys.accessToken] = accessToken
+            it[Keys.refreshToken] = refreshToken
         }
     }
 

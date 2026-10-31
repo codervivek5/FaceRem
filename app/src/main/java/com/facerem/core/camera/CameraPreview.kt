@@ -3,6 +3,7 @@ package com.facerem.core.camera
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -32,6 +33,7 @@ fun FaceCameraPreview(
     pose: FaceQualityEvaluator.HeadPose,
     onQuality: (FaceQualityStatus) -> Unit,
     modifier: Modifier = Modifier,
+    captureController: FaceCaptureController? = null,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -72,19 +74,31 @@ fun FaceCameraPreview(
                         )
                     }
 
+                // MINIMIZE_LATENCY: at a gate the person is already walking away by the
+                // time a quality-optimised shot would finish.
+                val capture = ImageCapture.Builder()
+                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                    .build()
+
                 provider.unbindAll()
                 provider.bindToLifecycle(
                     lifecycleOwner,
                     CameraSelector.DEFAULT_FRONT_CAMERA,
                     preview,
                     analysis,
+                    capture,
                 )
+                captureController?.apply {
+                    imageCapture = capture
+                    this.executor = executor
+                }
             }.onFailure { error ->
                 Log.w(TAG, "Unable to bind camera use cases", error)
             }
         }, ContextCompat.getMainExecutor(context))
 
         onDispose {
+            captureController?.imageCapture = null
             cameraProvider?.unbindAll()
             executor.shutdown()
         }

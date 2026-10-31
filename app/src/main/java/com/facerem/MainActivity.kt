@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.facerem.app.FaceAttendApp
 import com.facerem.core.datastore.ThemeMode
 import com.facerem.ui.theme.FaceAttendTheme
+import com.facerem.ui.theme.GlassBackdrop
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -30,9 +31,14 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
+                // Glass is a light treatment; its own scheme overrides this anyway.
+                ThemeMode.LIQUID_GLASS -> false
             }
-            FaceAttendTheme(darkTheme = darkTheme) {
-                FaceAttendApp()
+            FaceAttendTheme(darkTheme = darkTheme, glass = themeMode.isGlass) {
+                // Paints the colour wash the translucent panels sit on.
+                GlassBackdrop {
+                    FaceAttendApp()
+                }
             }
         }
     }

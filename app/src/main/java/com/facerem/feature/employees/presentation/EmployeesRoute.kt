@@ -31,8 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.facerem.app.navigation.BottomBarClearance
 import com.facerem.core.designsystem.component.AppTopBar
 import com.facerem.core.designsystem.component.EmptyState
 import com.facerem.core.designsystem.component.EnrollmentStatusPill
@@ -111,7 +112,7 @@ fun EmployeesRoute(
                     contentPadding = PaddingValues(
                         start = Spacing.screenHorizontal,
                         end = Spacing.screenHorizontal,
-                        bottom = 96.dp,
+                        bottom = BottomBarClearance,
                     ),
                 ) {
                     items(uiState.visibleEmployees, key = { it.id }) { employee ->

@@ -69,7 +69,7 @@ class FaceEnrollmentViewModel @Inject constructor(
      * A pose is accepted only after the quality verdict stays valid across consecutive frames,
      * which filters out single lucky frames during motion.
      */
-    fun onQuality(status: FaceQualityStatus) {
+    fun onQuality(status: FaceQualityStatus, captureFrame: suspend () -> ByteArray?) {
         mutableUiState.update { state ->
             if (state.allPosesCaptured || state.isSubmitting || !state.consentGiven) {
                 return@update state.copy(quality = status)
@@ -90,12 +90,19 @@ class FaceEnrollmentViewModel @Inject constructor(
         mutableUiState.update { it.copy(capturedPoses = 0, stableFrames = 0, errorMessage = null) }
     }
 
-    fun submit() {
+    fun submit(captureFrame: suspend () -> ByteArray?) {
         val state = mutableUiState.value
         if (!state.allPosesCaptured) return
         mutableUiState.update { it.copy(isSubmitting = true, errorMessage = null) }
         viewModelScope.launch {
-            val result = employeeRepository.submitFaceEnrollment(employeeId, ENROLLMENT_POSES.size)
+            val frame = captureFrame()
+            if (frame == null || frame.isEmpty()) {
+                mutableUiState.update {
+                    it.copy(isSubmitting = false, errorMessage = "Could not capture a photo.")
+                }
+                return@launch
+            }
+            val result = employeeRepository.submitFaceEnrollment(employeeId, frame)
             when (result) {
                 is AppResult.Success -> mutableUiState.update {
                     it.copy(isSubmitting = false, isComplete = true)

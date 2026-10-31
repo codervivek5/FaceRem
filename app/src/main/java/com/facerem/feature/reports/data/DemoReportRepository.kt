@@ -7,7 +7,7 @@ import com.facerem.feature.reports.domain.ReportRepository
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 
-class ReportRepositoryImpl @Inject constructor(
+class DemoReportRepository @Inject constructor(
     private val demoDataStore: DemoDataStore,
 ) : ReportRepository {
     override suspend fun loadSummary(): AppResult<ReportSummary> {

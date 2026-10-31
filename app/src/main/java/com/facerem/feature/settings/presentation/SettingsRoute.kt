@@ -1,6 +1,7 @@
 package com.facerem.feature.settings.presentation
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,8 +32,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.facerem.app.navigation.BottomBarClearance
 import com.facerem.core.datastore.ThemeMode
 import com.facerem.core.designsystem.component.AppTopBar
 import com.facerem.core.designsystem.component.ConfirmationDialog
@@ -163,8 +165,9 @@ fun SettingsRoute(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            Row(
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                 modifier = Modifier.padding(start = 56.dp, bottom = Spacing.sm),
             ) {
                 ThemeMode.entries.forEach { mode ->
@@ -200,7 +203,7 @@ fun SettingsRoute(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(96.dp))
+            Spacer(Modifier.height(BottomBarClearance))
         }
     }
 }
@@ -209,4 +212,5 @@ private fun ThemeMode.label(): String = when (this) {
     ThemeMode.SYSTEM -> "System"
     ThemeMode.LIGHT -> "Light"
     ThemeMode.DARK -> "Dark"
+    ThemeMode.LIQUID_GLASS -> "Liquid glass"
 }

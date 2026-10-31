@@ -15,7 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.filled.InsertChart
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -29,8 +29,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.facerem.app.navigation.BottomBarClearance
 import com.facerem.core.common.AppClock
 import com.facerem.core.common.minutesToHoursLabel
 import com.facerem.core.designsystem.component.AppTopBar
@@ -114,7 +115,7 @@ fun HistoryRoute(
                 uiState.visibleRecords.isEmpty() -> EmptyState(
                     title = "No records",
                     message = "No attendance matches the current range and filters.",
-                    icon = Icons.Default.EventNote,
+                    icon = Icons.AutoMirrored.Filled.EventNote,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
@@ -122,7 +123,7 @@ fun HistoryRoute(
                     contentPadding = PaddingValues(
                         start = Spacing.screenHorizontal,
                         end = Spacing.screenHorizontal,
-                        bottom = 96.dp,
+                        bottom = BottomBarClearance,
                     ),
                     verticalArrangement = Arrangement.spacedBy(Spacing.md),
                 ) {

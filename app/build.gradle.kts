@@ -6,6 +6,12 @@ plugins {
     alias(libs.plugins.hilt.android)
 }
 
+// Where debug builds look for the backend. 10.0.2.2 is the host as seen from the emulator;
+// a physical phone needs this machine's LAN address instead:
+//     ./gradlew assembleDebug -Pfaceattend.apiHost=192.168.1.28 -Pfaceattend.apiPort=8001
+val devApiHost: String = (project.findProperty("faceattend.apiHost") as String?) ?: "10.0.2.2"
+val devApiPort: String = (project.findProperty("faceattend.apiPort") as String?) ?: "8000"
+
 android {
     namespace = "com.facerem"
     compileSdk {
@@ -32,7 +38,7 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"https://api.faceattend.example/\"")
         }
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"https://api-dev.faceattend.example/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://$devApiHost:$devApiPort/\"")
         }
     }
     compileOptions {

@@ -30,7 +30,11 @@ interface EmployeeRepository {
     suspend fun createEmployee(employee: NewEmployee): AppResult<Employee>
 
     /** Maps to `POST /api/v1/employees/{employeeId}/face/enroll`. */
-    suspend fun submitFaceEnrollment(employeeId: String, capturedFrames: Int): AppResult<FaceEnrollmentStatus>
+    /** @param image a JPEG of a single, front-facing, well-lit face. */
+    suspend fun submitFaceEnrollment(
+        employeeId: String,
+        image: ByteArray,
+    ): AppResult<FaceEnrollmentStatus>
 
     suspend fun attendanceFor(employeeId: String): AppResult<List<AttendanceRecord>>
 

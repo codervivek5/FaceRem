@@ -48,6 +48,9 @@ object AppClock {
         .time
 }
 
+/** Groups thousands so large counts stay readable, e.g. `7,412`. */
+fun Int.grouped(): String = java.text.NumberFormat.getIntegerInstance(Locale.US).format(this)
+
 fun minutesToHoursLabel(minutes: Int): String {
     if (minutes <= 0) return "0h 0m"
     return "${minutes / 60}h ${minutes % 60}m"

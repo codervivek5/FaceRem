@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
     primary = DarkPrimary,
@@ -32,8 +33,17 @@ private val DarkColorScheme = darkColorScheme(
     onSurface = OnSurfaceDark,
     surfaceVariant = DarkSurfaceVariant,
     onSurfaceVariant = DarkOnSurfaceVariant,
+    surfaceContainerLowest = DarkSurfaceContainerLowest,
+    surfaceContainerLow = DarkSurfaceContainerLow,
     surfaceContainer = DarkSurfaceContainer,
     surfaceContainerHigh = DarkSurfaceContainerHigh,
+    surfaceContainerHighest = DarkSurfaceContainerHighest,
+    surfaceDim = DarkSurfaceDim,
+    surfaceBright = DarkSurfaceBright,
+    inverseSurface = DarkInverseSurface,
+    inverseOnSurface = DarkInverseOnSurface,
+    inversePrimary = DarkInversePrimary,
+    scrim = DarkScrim,
     outline = DarkOutline,
     outlineVariant = DarkOutlineVariant,
 )
@@ -61,8 +71,17 @@ private val LightColorScheme = lightColorScheme(
     onSurface = OnSurfaceLight,
     surfaceVariant = LightSurfaceVariant,
     onSurfaceVariant = LightOnSurfaceVariant,
+    surfaceContainerLowest = LightSurfaceContainerLowest,
+    surfaceContainerLow = LightSurfaceContainerLow,
     surfaceContainer = LightSurfaceContainer,
     surfaceContainerHigh = LightSurfaceContainerHigh,
+    surfaceContainerHighest = LightSurfaceContainerHighest,
+    surfaceDim = LightSurfaceDim,
+    surfaceBright = LightSurfaceBright,
+    inverseSurface = LightInverseSurface,
+    inverseOnSurface = LightInverseOnSurface,
+    inversePrimary = LightInversePrimary,
+    scrim = LightScrim,
     outline = LightOutline,
     outlineVariant = LightOutlineVariant,
 )
@@ -77,15 +96,44 @@ object AppTheme {
         get() = LocalAppColors.current
 }
 
+/**
+ * Light scheme with translucent surfaces.
+ *
+ * Making the surface *roles* translucent rather than restyling each card means every
+ * existing `Card` and `Surface` becomes glass without touching a single screen — they all
+ * draw from `surface` / `surfaceContainer` already.
+ */
+private val GlassColorScheme = LightColorScheme.copy(
+    // Transparent, so GlassBackdrop shows through instead of being painted over.
+    background = Color.Transparent,
+    surface = Color.White.copy(alpha = 0.72f),
+    surfaceContainerLowest = Color.White.copy(alpha = 0.60f),
+    surfaceContainerLow = Color.White.copy(alpha = 0.66f),
+    surfaceContainer = Color.White.copy(alpha = 0.72f),
+    surfaceContainerHigh = Color.White.copy(alpha = 0.80f),
+    surfaceContainerHighest = Color.White.copy(alpha = 0.86f),
+    surfaceVariant = Color.White.copy(alpha = 0.55f),
+    outline = Color.White.copy(alpha = 0.70f),
+    outlineVariant = Color.White.copy(alpha = 0.50f),
+)
+
 @Composable
 fun FaceAttendTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    glass: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-    val semanticColors = if (darkTheme) DarkSemanticColors else LightSemanticColors
+    val colorScheme = when {
+        glass -> GlassColorScheme
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
+    val semanticColors = if (darkTheme && !glass) DarkSemanticColors else LightSemanticColors
 
-    CompositionLocalProvider(LocalAppColors provides semanticColors) {
+    CompositionLocalProvider(
+        LocalAppColors provides semanticColors,
+        LocalGlass provides if (glass) LiquidGlass else OpaqueGlass,
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography,

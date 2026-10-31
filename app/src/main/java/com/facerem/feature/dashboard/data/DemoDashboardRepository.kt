@@ -10,7 +10,7 @@ import com.facerem.feature.dashboard.domain.DashboardRepository
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 
-class DashboardRepositoryImpl @Inject constructor(
+class DemoDashboardRepository @Inject constructor(
     private val demoDataStore: DemoDataStore,
 ) : DashboardRepository {
 

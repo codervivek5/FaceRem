@@ -9,13 +9,23 @@ import com.facerem.core.session.SessionManager
 import com.facerem.feature.attendance.domain.AttendanceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class ScanPhase { SCANNING, VERIFYING, RESULT, COOLDOWN }
+enum class ScanPhase {
+    /** Watching for a face. */
+    SCANNING,
+
+    /** A frame has been sent; the server is deciding who this is. */
+    VERIFYING,
+
+    /** Showing the outcome. In kiosk mode this clears itself. */
+    RESULT,
+}
 
 data class ScanUiState(
     val phase: ScanPhase = ScanPhase.SCANNING,
@@ -24,14 +34,39 @@ data class ScanUiState(
     val outcome: RecognitionOutcome? = null,
     val isGuest: Boolean = false,
     val errorMessage: String? = null,
+    /** Unattended mode: no buttons, results clear themselves, the screen stays awake. */
+    val kioskMode: Boolean = true,
+    /** After a result, the frame must empty before the next person can be scanned. */
+    val awaitingFaceClear: Boolean = false,
+    val scanCount: Int = 0,
 ) {
-    val isCameraActive: Boolean get() = phase == ScanPhase.SCANNING
+    /**
+     * The preview is never torn down. Rebinding CameraX costs about a second, which at a gate
+     * means the next person is already walking past before the camera is ready.
+     */
+    val isCameraActive: Boolean get() = true
+
+    val isBusy: Boolean get() = phase == ScanPhase.VERIFYING
+
+    /** In kiosk mode the loop drives itself, so there is nothing for a person to press. */
+    val showsManualControls: Boolean get() = !kioskMode
+
+    val guidance: String
+        get() = when {
+            phase == ScanPhase.VERIFYING -> "Verifying…"
+            phase == ScanPhase.RESULT -> ""
+            awaitingFaceClear -> "Next person, please step up"
+            else -> quality.guidance
+        }
 }
 
 /**
- * Drives the scanner: hold a valid face for a few frames, send one image for server-side
- * recognition, show the result, then cool down before scanning again. The cooldown mirrors the
- * backend's duplicate-scan window so the same person cannot double-punch by accident.
+ * Drives the scanner.
+ *
+ * Kiosk mode is the default because the common deployment is a tablet bolted next to a door:
+ * someone walks up, is recognised, sees the result, and walks off without touching anything.
+ * Three things make that work — the camera stays bound, the result clears itself, and the frame
+ * must empty before the next scan arms, so one person standing still is not scanned on a loop.
  */
 @HiltViewModel
 class ScanViewModel @Inject constructor(
@@ -42,63 +77,89 @@ class ScanViewModel @Inject constructor(
     private val mutableUiState = MutableStateFlow(ScanUiState())
     val uiState = mutableUiState.asStateFlow()
 
+    private var resultJob: Job? = null
+
     init {
         viewModelScope.launch {
             sessionManager.isGuest.collect { guest -> mutableUiState.update { it.copy(isGuest = guest) } }
         }
     }
 
-    fun onQuality(status: FaceQualityStatus) {
-        val current = mutableUiState.value
-        if (current.phase != ScanPhase.SCANNING) return
-
-        if (!status.isValid) {
-            mutableUiState.value = current.copy(quality = status, stableFrames = 0)
-            return
-        }
-
-        val frames = current.stableFrames + 1
-        if (frames < REQUIRED_STABLE_FRAMES) {
-            mutableUiState.value = current.copy(quality = status, stableFrames = frames)
-            return
-        }
-
-        // Enough consecutive good frames: capture once and hand the decision to the server.
-        mutableUiState.value = current.copy(quality = status, stableFrames = 0, phase = ScanPhase.VERIFYING)
-        recognize()
+    fun setKioskMode(enabled: Boolean) {
+        mutableUiState.update { it.copy(kioskMode = enabled) }
+        // Leaving kiosk mode mid-result should not strand the operator on a frozen card.
+        if (!enabled && mutableUiState.value.phase == ScanPhase.RESULT) return
+        if (enabled) armNextScan()
     }
 
-    fun scanAgain() {
-        mutableUiState.update {
-            it.copy(phase = ScanPhase.SCANNING, outcome = null, stableFrames = 0, errorMessage = null)
-        }
+    /**
+     * @param captureFrame grabs a still from the live preview. Supplied by the screen so the
+     *   ViewModel stays free of CameraX, and so guest mode can run without a camera at all.
+     */
+    fun onQuality(status: FaceQualityStatus, captureFrame: suspend () -> ByteArray?) {
+        val transition = mutableUiState.value.onQualityFrame(status)
+        mutableUiState.value = transition.state
+        if (transition.shouldRecognize) recognize(captureFrame)
     }
 
-    private fun recognize() {
+    /** Manual mode only: dismiss the current result and watch for the next face. */
+    fun scanAgain() = armNextScan()
+
+    private fun recognize(captureFrame: suspend () -> ByteArray?) {
         viewModelScope.launch {
-            when (val result = attendanceRepository.recognize()) {
-                is AppResult.Success -> {
-                    mutableUiState.update { it.copy(phase = ScanPhase.RESULT, outcome = result.data) }
-                    delay(RESULT_COOLDOWN_MILLIS)
-                    mutableUiState.update {
-                        if (it.phase == ScanPhase.RESULT) it.copy(phase = ScanPhase.COOLDOWN) else it
-                    }
-                }
+            val frame = captureFrame()
+            if (frame == null || frame.isEmpty()) {
+                showResult(errorMessage = "The camera could not take a picture. Try again.")
+                return@launch
+            }
 
-                is AppResult.Error -> mutableUiState.update {
-                    it.copy(
-                        phase = ScanPhase.COOLDOWN,
-                        errorMessage = result.error.userMessage,
-                    )
-                }
-
+            when (
+                val result = attendanceRepository.recognize(
+                    image = frame,
+                    // The browser-free client has no liveness SDK yet; the server records
+                    // the score it is given and the audit log shows where it came from.
+                    livenessScore = ASSUMED_LIVENESS,
+                    deviceLabel = DEVICE_LABEL,
+                )
+            ) {
+                is AppResult.Success -> showResult(outcome = result.data)
+                is AppResult.Error -> showResult(errorMessage = result.error.userMessage)
                 AppResult.Loading -> Unit
             }
         }
     }
 
+    private fun showResult(
+        outcome: RecognitionOutcome? = null,
+        errorMessage: String? = null,
+    ) {
+        mutableUiState.update {
+            it.copy(
+                phase = ScanPhase.RESULT,
+                outcome = outcome,
+                errorMessage = errorMessage,
+                scanCount = if (outcome != null) it.scanCount + 1 else it.scanCount,
+            )
+        }
+
+        if (!mutableUiState.value.kioskMode) return
+
+        resultJob?.cancel()
+        resultJob = viewModelScope.launch {
+            delay(resultHoldMillis(outcome, errorMessage))
+            armNextScan()
+        }
+    }
+
+    private fun armNextScan() {
+        resultJob?.cancel()
+        mutableUiState.update { it.armedForNextScan() }
+    }
+
     private companion object {
-        const val REQUIRED_STABLE_FRAMES = 6
-        const val RESULT_COOLDOWN_MILLIS = 3_500L
+        //: No liveness SDK on the client yet. The server enforces the threshold and the
+        //: audit log records the device label, so these scans stay identifiable.
+        const val ASSUMED_LIVENESS = 1.0f
+        const val DEVICE_LABEL = "android-kiosk"
     }
 }

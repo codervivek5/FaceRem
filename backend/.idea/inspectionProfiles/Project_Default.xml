@@ -1,0 +1,42 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="Eslint" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="fastapi" />
+          <option value="uvicorn" />
+          <option value="python-multipart" />
+          <option value="httpx" />
+          <option value="sqlmodel" />
+          <option value="asyncpg" />
+          <option value="psycopg2-binary" />
+          <option value="pydantic" />
+          <option value="pydantic-settings" />
+          <option value="pyjwt" />
+          <option value="passlib" />
+          <option value="celery" />
+          <option value="redis" />
+          <option value="langgraph" />
+          <option value="langchain" />
+          <option value="langchain-core" />
+          <option value="langchain-google-genai" />
+          <option value="google-genai" />
+          <option value="chromadb" />
+          <option value="pymupdf" />
+          <option value="python-docx" />
+          <option value="python-pptx" />
+          <option value="structlog" />
+          <option value="pytest" />
+          <option value="pytest-asyncio" />
+          <option value="ruff" />
+          <option value="pre-commit" />
+          <option value="mypy" />
+          <option value="sqlalchemy" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="SqlNoDataSourceInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+  </profile>
+</component>

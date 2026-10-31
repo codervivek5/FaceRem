@@ -8,11 +8,16 @@ import com.facerem.feature.attendance.domain.AttendanceRepository
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 
-class AttendanceRepositoryImpl @Inject constructor(
+class DemoAttendanceRepository @Inject constructor(
     private val demoDataStore: DemoDataStore,
 ) : AttendanceRepository {
 
-    override suspend fun recognize(): AppResult<RecognitionOutcome> {
+    override suspend fun recognize(
+        image: ByteArray,
+        livenessScore: Float,
+        deviceLabel: String,
+    ): AppResult<RecognitionOutcome> {
+        // The demo never looks at the frame; it picks a plausible employee instead.
         delay(1_400)
         return AppResult.Success(demoDataStore.simulateRecognition())
     }

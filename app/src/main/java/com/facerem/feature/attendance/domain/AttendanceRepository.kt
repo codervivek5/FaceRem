@@ -9,7 +9,11 @@ interface AttendanceRepository {
      * Maps to `POST /api/v1/attendance/recognize`. Identity is decided by the server against the
      * caller's organization only; the client never matches embeddings itself.
      */
-    suspend fun recognize(): AppResult<RecognitionOutcome>
+    suspend fun recognize(
+        image: ByteArray,
+        livenessScore: Float,
+        deviceLabel: String,
+    ): AppResult<RecognitionOutcome>
 
     suspend fun history(): AppResult<List<AttendanceRecord>>
 }

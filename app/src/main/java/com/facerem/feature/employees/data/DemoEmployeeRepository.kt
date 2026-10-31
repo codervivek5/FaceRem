@@ -14,7 +14,7 @@ import com.facerem.feature.employees.domain.NewEmployee
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 
-class EmployeeRepositoryImpl @Inject constructor(
+class DemoEmployeeRepository @Inject constructor(
     private val demoDataStore: DemoDataStore,
 ) : EmployeeRepository {
 
@@ -61,12 +61,12 @@ class EmployeeRepositoryImpl @Inject constructor(
 
     override suspend fun submitFaceEnrollment(
         employeeId: String,
-        capturedFrames: Int,
+        image: ByteArray,
     ): AppResult<FaceEnrollmentStatus> {
         delay(1_200)
-        if (capturedFrames < MINIMUM_FRAMES) {
+        if (image.isEmpty()) {
             return AppResult.Error(
-                AppError.Api("FACE_QUALITY_LOW", "Capture all required angles before submitting.", httpStatus = 422),
+                AppError.Api("FACE_QUALITY_LOW", "No frame was captured.", httpStatus = 422),
             )
         }
         demoDataStore.updateEnrollment(employeeId, FaceEnrollmentStatus.ENROLLED)
@@ -84,7 +84,4 @@ class EmployeeRepositoryImpl @Inject constructor(
 
     override suspend fun shifts(): List<Shift> = demoDataStore.shifts
 
-    private companion object {
-        const val MINIMUM_FRAMES = 3
-    }
 }

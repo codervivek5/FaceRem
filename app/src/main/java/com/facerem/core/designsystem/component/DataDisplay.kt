@@ -1,7 +1,8 @@
 package com.facerem.core.designsystem.component
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Icon
@@ -25,7 +28,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.facerem.core.model.DailyRate
@@ -33,7 +38,7 @@ import com.facerem.ui.theme.AppTheme
 import com.facerem.ui.theme.Spacing
 import kotlin.math.roundToInt
 
-/** Lightweight column chart. Values are ratios in `0f..1f`. */
+/** Sleek column chart with gradient bars and spring growth physics. */
 @Composable
 fun WeeklyRateChart(
     rates: List<DailyRate>,
@@ -43,14 +48,14 @@ fun WeeklyRateChart(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(140.dp),
+            .height(148.dp),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalAlignment = Alignment.Bottom,
     ) {
         rates.forEach { rate ->
             val animated by animateFloatAsState(
                 targetValue = rate.rate.coerceIn(0f, 1f),
-                animationSpec = tween(durationMillis = 600),
+                animationSpec = spring(stiffness = Spring.StiffnessLow),
                 label = "bar-${rate.dayLabel}",
             )
             Column(
@@ -62,13 +67,14 @@ fun WeeklyRateChart(
                     "${(rate.rate * 100).roundToInt()}%",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.height(Spacing.xs))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(88.dp)
-                        .clip(MaterialTheme.shapes.small)
+                        .height(96.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     contentAlignment = Alignment.BottomCenter,
                 ) {
@@ -76,8 +82,15 @@ fun WeeklyRateChart(
                         modifier = Modifier
                             .fillMaxWidth()
                             .fillMaxHeight(animated)
-                            .clip(MaterialTheme.shapes.small)
-                            .background(barColor),
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        barColor,
+                                        barColor.copy(alpha = 0.65f),
+                                    ),
+                                ),
+                            ),
                     )
                 }
                 Spacer(Modifier.height(Spacing.xs))
@@ -85,6 +98,7 @@ fun WeeklyRateChart(
                     rate.dayLabel,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium,
                 )
             }
         }
@@ -102,13 +116,13 @@ fun RateBar(
 ) {
     val animated by animateFloatAsState(
         targetValue = rate.coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = 600),
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "rate-$label",
     )
     Column(modifier = modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            Text("${(rate * 100).roundToInt()}%", style = MaterialTheme.typography.labelLarge)
+            Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text("${(rate * 100).roundToInt()}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = barColor)
         }
         if (caption != null) {
             Text(
@@ -121,24 +135,30 @@ fun RateBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(8.dp)
-                .clip(MaterialTheme.shapes.extraSmall)
+                .height(10.dp)
+                .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(animated)
-                    .height(8.dp)
-                    .clip(MaterialTheme.shapes.extraSmall)
-                    .background(barColor),
+                    .height(10.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                barColor.copy(alpha = 0.7f),
+                                barColor,
+                            ),
+                        ),
+                    ),
             )
         }
     }
 }
 
 /**
- * Persistent, unmissable marker that the session is a local demo. Guest sessions never reach the
- * backend, so the UI must say so rather than implying the data is real.
+ * Persistent marker for guest sessions.
  */
 @Composable
 fun GuestModeBanner(
@@ -148,7 +168,7 @@ fun GuestModeBanner(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
+            .clip(RoundedCornerShape(16.dp))
             .background(AppTheme.colors.warningContainer)
             .padding(horizontal = Spacing.md, vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
@@ -164,12 +184,13 @@ fun GuestModeBanner(
             text = "Guest mode — sample data stored only on this device",
             style = MaterialTheme.typography.bodySmall,
             color = AppTheme.colors.onWarningContainer,
+            fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Start,
             modifier = Modifier.weight(1f),
         )
         if (onExit != null) {
             TextButton(onClick = onExit) {
-                Text("Exit", style = MaterialTheme.typography.labelMedium, color = AppTheme.colors.onWarningContainer)
+                Text("Exit", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = AppTheme.colors.onWarningContainer)
             }
         }
     }

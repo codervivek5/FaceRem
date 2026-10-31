@@ -1,6 +1,18 @@
 package com.facerem.feature.faceenrollment.presentation
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
@@ -34,12 +47,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.facerem.core.camera.FaceCameraPreview
+import com.facerem.core.camera.FaceCaptureController
 import com.facerem.core.camera.rememberCameraPermissionState
+import com.facerem.core.camera.rememberFaceCaptureController
 import com.facerem.core.camera.rememberFaceDetector
 import com.facerem.core.designsystem.component.AppTopBar
 import com.facerem.core.designsystem.component.FaceFramingOverlay
@@ -50,6 +67,13 @@ import com.facerem.ui.theme.AppTheme
 import com.facerem.ui.theme.Spacing
 import com.google.mlkit.vision.face.FaceDetector
 
+private enum class EnrollmentStep {
+    CONSENT,
+    PERMISSION,
+    CAPTURE,
+    COMPLETE,
+}
+
 @Composable
 fun FaceEnrollmentRoute(
     onNavigateUp: () -> Unit,
@@ -58,6 +82,14 @@ fun FaceEnrollmentRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val permission by rememberCameraPermissionState()
     val detector = rememberFaceDetector()
+    val captureController = rememberFaceCaptureController()
+
+    val currentStep = when {
+        uiState.isComplete -> EnrollmentStep.COMPLETE
+        !uiState.consentGiven -> EnrollmentStep.CONSENT
+        !permission.isGranted -> EnrollmentStep.PERMISSION
+        else -> EnrollmentStep.CAPTURE
+    }
 
     Scaffold(
         topBar = {
@@ -75,29 +107,41 @@ fun FaceEnrollmentRoute(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Spacing.screenHorizontal),
         ) {
-            when {
-                uiState.isComplete -> EnrollmentComplete(
-                    employeeName = uiState.employee?.fullName.orEmpty(),
-                    onDone = onNavigateUp,
-                )
+            AnimatedContent(
+                targetState = currentStep,
+                transitionSpec = {
+                    (slideInHorizontally(tween(300)) { it / 2 } + fadeIn(tween(300))) togetherWith
+                        (slideOutHorizontally(tween(200)) { -it / 2 } + fadeOut(tween(200)))
+                },
+                label = "enrollment-step-content",
+            ) { step ->
+                when (step) {
+                    EnrollmentStep.COMPLETE -> EnrollmentComplete(
+                        employeeName = uiState.employee?.fullName.orEmpty(),
+                        onDone = onNavigateUp,
+                    )
 
-                !uiState.consentGiven -> ConsentStep(
-                    employeeName = uiState.employee?.fullName.orEmpty(),
-                    onConsentChange = viewModel::onConsentChange,
-                )
+                    EnrollmentStep.CONSENT -> ConsentStep(
+                        employeeName = uiState.employee?.fullName.orEmpty(),
+                        onConsentChange = viewModel::onConsentChange,
+                    )
 
-                !permission.isGranted -> CameraPermissionStep(
-                    hasBeenRequested = permission.hasBeenRequested,
-                    onRequest = permission.request,
-                )
+                    EnrollmentStep.PERMISSION -> CameraPermissionStep(
+                        hasBeenRequested = permission.hasBeenRequested,
+                        onRequest = permission.request,
+                    )
 
-                else -> CaptureStep(
-                    uiState = uiState,
-                    detector = detector,
-                    onQuality = viewModel::onQuality,
-                    onSubmit = viewModel::submit,
-                    onRetake = viewModel::retake,
-                )
+                    EnrollmentStep.CAPTURE -> CaptureStep(
+                        uiState = uiState,
+                        detector = detector,
+                        captureController = captureController,
+                        onQuality = { status ->
+                            viewModel.onQuality(status, captureController::capture)
+                        },
+                        onSubmit = { viewModel.submit(captureController::capture) },
+                        onRetake = viewModel::retake,
+                    )
+                }
             }
             Spacer(Modifier.height(Spacing.xxl))
         }
@@ -108,7 +152,7 @@ fun FaceEnrollmentRoute(
 private fun ConsentStep(employeeName: String, onConsentChange: (Boolean) -> Unit) {
     Column {
         Spacer(Modifier.height(Spacing.lg))
-        Text("Biometric consent", style = MaterialTheme.typography.titleLarge)
+        Text("Biometric consent", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(Spacing.md))
         Text(
             "Enrolling ${employeeName.ifBlank { "this employee" }} creates a face profile used only " +
@@ -124,7 +168,7 @@ private fun ConsentStep(employeeName: String, onConsentChange: (Boolean) -> Unit
             "Consent and its timestamp are recorded in the audit log.",
         ).forEach { line ->
             Row(modifier = Modifier.padding(vertical = Spacing.xs)) {
-                Text("•  ", style = MaterialTheme.typography.bodyMedium)
+                Text("•  ", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                 Text(
                     line,
                     style = MaterialTheme.typography.bodyMedium,
@@ -173,7 +217,7 @@ private fun CameraPermissionStep(hasBeenRequested: Boolean, onRequest: () -> Uni
             )
         }
         Spacer(Modifier.height(Spacing.lg))
-        Text("Camera access needed", style = MaterialTheme.typography.titleMedium)
+        Text("Camera access needed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(Spacing.sm))
         Text(
             if (hasBeenRequested) {
@@ -194,6 +238,7 @@ private fun CameraPermissionStep(hasBeenRequested: Boolean, onRequest: () -> Uni
 private fun CaptureStep(
     uiState: FaceEnrollmentUiState,
     detector: FaceDetector,
+    captureController: FaceCaptureController,
     onQuality: (com.facerem.core.camera.FaceQualityStatus) -> Unit,
     onSubmit: () -> Unit,
     onRetake: () -> Unit,
@@ -205,6 +250,12 @@ private fun CaptureStep(
         else -> semantic.warning
     }
 
+    val animatedProgress by animateFloatAsState(
+        targetValue = uiState.progress,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "enrollment-progress",
+    )
+
     Column {
         Spacer(Modifier.height(Spacing.md))
         Box(
@@ -212,7 +263,8 @@ private fun CaptureStep(
                 .fillMaxWidth()
                 .aspectRatio(0.78f)
                 .clip(MaterialTheme.shapes.extraLarge)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .border(1.dp, accent.copy(alpha = 0.35f), MaterialTheme.shapes.extraLarge),
         ) {
             if (!uiState.allPosesCaptured) {
                 FaceCameraPreview(
@@ -220,16 +272,33 @@ private fun CaptureStep(
                     pose = uiState.currentPose,
                     onQuality = onQuality,
                     modifier = Modifier.fillMaxSize(),
+                    captureController = captureController,
                 )
                 FaceFramingOverlay(accent = accent, isActive = !uiState.isSubmitting)
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = semantic.success,
-                        modifier = Modifier.size(72.dp),
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .size(88.dp)
+                                .clip(CircleShape)
+                                .background(semantic.success.copy(alpha = 0.16f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = semantic.success,
+                                modifier = Modifier.size(60.dp),
+                            )
+                        }
+                        Spacer(Modifier.height(Spacing.md))
+                        Text(
+                            "Ready to submit",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             }
         }
@@ -238,6 +307,7 @@ private fun CaptureStep(
         Text(
             if (uiState.allPosesCaptured) "All angles captured" else uiState.currentPose.instruction,
             style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
         )
         Spacer(Modifier.height(Spacing.xs))
         Text(
@@ -248,29 +318,48 @@ private fun CaptureStep(
 
         Spacer(Modifier.height(Spacing.lg))
         LinearProgressIndicator(
-            progress = { uiState.progress },
+            progress = { animatedProgress },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(6.dp)
-                .clip(MaterialTheme.shapes.extraSmall),
+                .height(8.dp)
+                .clip(MaterialTheme.shapes.small),
         )
         Spacer(Modifier.height(Spacing.md))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             ENROLLMENT_POSES.forEachIndexed { index, pose ->
                 val captured = index < uiState.capturedPoses
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                val iconScale by animateFloatAsState(
+                    targetValue = if (captured) 1.15f else 1f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                    label = "badge-scale",
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (captured) semantic.success.copy(alpha = 0.12f)
+                            else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        )
+                        .padding(horizontal = Spacing.xs, vertical = Spacing.xs),
+                ) {
                     Icon(
                         if (captured) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                         contentDescription = null,
                         tint = if (captured) semantic.success else MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier
+                            .size(18.dp)
+                            .scale(iconScale),
                     )
                     Spacer(Modifier.width(Spacing.xs))
                     Text(
                         pose.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() },
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (captured) semantic.success else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (captured) FontWeight.Bold else FontWeight.Normal,
                     )
                 }
             }
@@ -305,14 +394,22 @@ private fun EnrollmentComplete(employeeName: String, onDone: () -> Unit) {
             .padding(vertical = Spacing.xxl),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            Icons.Default.CheckCircle,
-            contentDescription = null,
-            tint = semantic.success,
-            modifier = Modifier.size(84.dp),
-        )
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(semantic.success.copy(alpha = 0.16f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = semantic.success,
+                modifier = Modifier.size(68.dp),
+            )
+        }
         Spacer(Modifier.height(Spacing.lg))
-        Text("Face profile created", style = MaterialTheme.typography.titleLarge)
+        Text("Face profile created", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(Spacing.sm))
         Text(
             "${employeeName.ifBlank { "This employee" }} can now check in with the attendance scanner.",

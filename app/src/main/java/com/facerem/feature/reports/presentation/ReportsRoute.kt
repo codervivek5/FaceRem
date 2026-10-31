@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.item
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EventBusy
@@ -31,8 +30,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.facerem.core.common.grouped
 import com.facerem.core.designsystem.component.AppTopBar
 import com.facerem.core.designsystem.component.ErrorState
 import com.facerem.core.designsystem.component.FullScreenLoader
@@ -120,14 +120,14 @@ fun ReportsRoute(
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                         StatCard(
                             label = "Hours worked",
-                            value = summary.totalWorkedHours.toString(),
+                            value = summary.totalWorkedHours.grouped(),
                             icon = Icons.Default.WorkHistory,
                             accent = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.weight(1f),
                         )
                         StatCard(
                             label = "Overtime hours",
-                            value = summary.totalOvertimeHours.toString(),
+                            value = summary.totalOvertimeHours.grouped(),
                             icon = Icons.Default.MoreTime,
                             accent = semantic.info,
                             modifier = Modifier.weight(1f),
